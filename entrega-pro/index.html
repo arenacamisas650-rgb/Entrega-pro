@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#FF4500"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Entrega Pro"/>
+  <title>Entrega Pro</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Leaflet para mapa de rota -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@400;500;600;700;800;900&display=swap');
+
+    :root {
+      --brand: #FF4500;
+      --brand-dark: #CC3700;
+      --brand-light: #FF6A33;
+      --green: #00C853;
+      --green-dark: #009624;
+      --red: #FF1744;
+      --yellow: #FFD600;
+      --blue: #2979FF;
+      --bg: #0A0A0F;
+      --surface: #13131A;
+      --surface2: #1C1C26;
+      --surface3: #252530;
+      --border: rgba(255,255,255,0.07);
+      --text: #F0F0F5;
+      --text-muted: #7A7A8C;
+      --text-dim: #4A4A5A;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.5);
+      --glow: 0 0 20px rgba(255,69,0,0.25);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { font-size: 16px; }
+    body {
+      font-family: 'Barlow', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+      overscroll-behavior: none;
+    }
+
+    /* === TOP HEADER === */
+    .app-header {
+      background: linear-gradient(135deg, var(--brand) 0%, #FF6A33 100%);
+      padding: 48px 20px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(255,69,0,0.4);
+    }
+    .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .app-title { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; color: #fff; }
+    .app-title span { font-family: 'Space Mono', monospace; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 6px; font-size: 14px; margin-left: 6px; vertical-align: middle; }
+    .btn-config { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 44px; height: 44px; border-radius: 12px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .month-filter { display: flex; align-items: center; gap: 10px; }
+    .month-label { font-size: 13px; color: rgba(255,255,255,0.8); font-weight: 600; }
+    #filtroMes { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 12px; border-radius: 10px; font-size: 14px; font-family: 'Barlow', sans-serif; font-weight: 600; flex: 1; }
+
+    /* === BOTTOM NAV === */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 200; padding-bottom: env(safe-area-inset-bottom); }
+    .nav-btn { flex: 1; background: none; border: none; color: var(--text-muted); padding: 10px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-family: 'Barlow', sans-serif; font-weight: 600; transition: color 0.2s; }
+    .nav-btn .nav-icon { font-size: 22px; }
+    .nav-btn.active { color: var(--brand); }
+
+    /* === PAGES === */
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; }
+
+    /* === CARDS === */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+    .card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 14px; }
+
+    /* === STATS === */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .stats-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+    .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+    .stat-value { font-size: 18px; font-weight: 800; font-family: 'Space Mono', monospace; line-height: 1; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red { color: var(--red); }
+    .stat-value.yellow { color: var(--yellow); }
+    .stat-value.brand { color: var(--brand); }
+    .stat-value.blue { color: var(--blue); }
+    .stat-card.highlight { grid-column: 1 / -1; border-color: rgba(255,69,0,0.3); background: linear-gradient(135deg, rgba(255,69,0,0.1) 0%, var(--surface2) 100%); }
+    .stat-card.highlight-green { grid-column: 1 / -1; border-color: rgba(0,200,83,0.3); background: linear-gradient(135deg, rgba(0,200,83,0.08) 0%, var(--surface2) 100%); }
+
+    /* === SECTION HEADER === */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .section-title { font-size: 16px; font-weight: 800; color: var(--text); }
+    .badge { background: var(--brand); color: #fff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+    .badge-green { background: var(--green); color: #000; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+
+    /* === BUTTONS === */
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 700; font-family: 'Barlow', sans-serif; cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px; }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--brand); color: #fff; box-shadow: 0 4px 16px rgba(255,69,0,0.4); }
+    .btn-primary:active { background: var(--brand-dark); }
+    .btn-success { background: var(--green); color: #fff; box-shadow: 0 4px 16px rgba(0,200,83,0.3); }
+    .btn-success:active { background: var(--green-dark); }
+    .btn-danger { background: rgba(255,23,68,0.15); color: var(--red); border: 1px solid rgba(255,23,68,0.3); }
+    .btn-secondary { background: var(--surface3); color: var(--text); border: 1px solid var(--border); }
+    .btn-blue { background: var(--blue); color: #fff; box-shadow: 0 4px 16px rgba(41,121,255,0.3); }
+    .btn-sm { padding: 10px 14px; font-size: 13px; width: auto; border-radius: 8px; }
+    .btn-icon { font-size: 18px; }
+
+    /* === MODO RÁPIDO === */
+    .quick-mode-btn {
+      background: linear-gradient(135deg, #FF4500 0%, #FF8C00 100%);
+      border: none; color: #fff; width: 100%;
+      padding: 20px; border-radius: var(--radius);
+      font-size: 18px; font-weight: 900;
+      font-family: 'Barlow', sans-serif;
+      cursor: pointer; margin-bottom: 12px;
+      box-shadow: 0 6px 24px rgba(255,69,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; letter-spacing: 0.5px;
+      transition: all 0.2s;
+    }
+    .quick-mode-btn:active { transform: scale(0.97); }
+
+    /* === ALERTA ROTA === */
+    .alert-box {
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .alert-box.danger { background: rgba(255,23,68,0.12); border: 1px solid rgba(255,23,68,0.35); color: var(--red); }
+    .alert-box.warning { background: rgba(255,214,0,0.12); border: 1px solid rgba(255,214,0,0.35); color: var(--yellow); }
+    .alert-box.success { background: rgba(0,200,83,0.12); border: 1px solid rgba(0,200,83,0.35); color: var(--green); }
+    .alert-box.info { background: rgba(41,121,255,0.12); border: 1px solid rgba(41,121,255,0.35); color: #6699ff; }
+
+    /* === GPS ROUTE SECTION === */
+    .route-status { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 12px; border: 1px solid var(--border); }
+    .route-status-label { font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .route-status-value { font-size: 28px; font-weight: 900; font-family: 'Space Mono', monospace; color: var(--text); }
+    .route-status-value.running { color: var(--green); }
+    .route-timer { font-size: 13px; color: var(--text-muted); margin-top: 4px; font-family: 'Space Mono', monospace; }
+    .gps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .gps-info { background: var(--surface3); border-radius: 8px; padding: 10px; font-size: 12px; }
+    .gps-info-label { color: var(--text-muted); font-weight: 600; margin-bottom: 3px; }
+    .gps-info-val { font-family: 'Space Mono', monospace; color: var(--text); font-size: 11px; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+
+    /* === MAPA === */
+    #mapaRota { height: 220px; border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border); background: var(--surface3); }
+
+    /* === PREVISÃO TEMPO REAL === */
+    .preview-live {
+      background: linear-gradient(135deg, rgba(0,200,83,0.08) 0%, var(--surface2) 100%);
+      border: 1px solid rgba(0,200,83,0.25);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .preview-live.negative {
+      background: linear-gradient(135deg, rgba(255,23,68,0.08) 0%, var(--surface2) 100%);
+      border-color: rgba(255,23,68,0.25);
+    }
+    .preview-live-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px;
+    }
+    .preview-live-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .preview-item { text-align: center; }
+    .preview-item-val { font-size: 16px; font-weight: 800; font-family: 'Space Mono', monospace; }
+    .preview-item-label { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-top: 3px; }
+
+    /* === FORM ELEMENTS === */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+    input, select, datalist { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; color: var(--text); font-size: 16px; font-family: 'Barlow', sans-serif; transition: border-color 0.2s; -webkit-appearance: none; }
+    input:focus, select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(255,69,0,0.15); }
+    input::placeholder { color: var(--text-dim); }
+    select option { background: var(--surface2); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* === ROUTE LIST === */
+    .route-item { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 8px; position: relative; }
+    .route-item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .route-item-empresa { font-size: 15px; font-weight: 800; color: var(--text); }
+    .route-item-data { font-size: 12px; color: var(--text-muted); }
+    .route-item-profit { font-size: 18px; font-weight: 800; font-family: 'Space Mono', monospace; }
+    .route-item-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--text-muted); }
+    .route-item-meta span { display: flex; align-items: center; gap: 4px; }
+    .route-delete { position: absolute; top: 12px; right: 12px; background: rgba(255,23,68,0.1); border: 1px solid rgba(255,23,68,0.2); color: var(--red); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Barlow', sans-serif; }
+
+    /* === AJUDANTE CARD === */
+    .ajudante-card { background: linear-gradient(135deg, rgba(255,214,0,0.1) 0%, var(--surface) 100%); border: 1px solid rgba(255,214,0,0.3); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+    .ajudante-badge { display: inline-block; background: var(--yellow); color: #000; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+
+    /* === DASHBOARD INTEL === */
+    .insight-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+    .insight-icon { font-size: 28px; flex-shrink: 0; }
+    .insight-title { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+    .insight-value { font-size: 17px; font-weight: 800; color: var(--text); }
+    .insight-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+    /* === PERFORMANCE METRICS === */
+    .perf-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .perf-item { background: var(--surface3); border-radius: 10px; padding: 12px; text-align: center; }
+    .perf-value { font-size: 18px; font-weight: 800; font-family: 'Space Mono', monospace; color: var(--brand); line-height: 1; }
+    .perf-label { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* === TOAST === */
+    .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface3); color: var(--text); padding: 12px 20px; border-radius: 30px; font-size: 14px; font-weight: 600; opacity: 0; transition: all 0.3s; z-index: 300; border: 1px solid var(--border); white-space: nowrap; box-shadow: var(--shadow); }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--green); color: var(--green); }
+    .toast.error { border-color: var(--red); color: var(--red); }
+
+    /* === MODAL === */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 400; display: none; align-items: flex-end; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border-radius: 24px 24px 0 0; padding: 24px 20px 40px; width: 100%; max-height: 92vh; overflow-y: auto; border: 1px solid var(--border); border-bottom: none; }
+    .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+    .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 20px; }
+
+    /* === MODO RÁPIDO MODAL === */
+    .quick-field { background: var(--surface2); border-radius: var(--radius); padding: 20px; margin-bottom: 10px; }
+    .quick-field label { font-size: 14px; color: var(--text-muted); margin-bottom: 10px; }
+    .quick-field input { font-size: 24px; font-weight: 800; font-family: 'Space Mono', monospace; background: transparent; border: none; border-bottom: 2px solid var(--border); border-radius: 0; padding: 8px 0; color: var(--text); }
+    .quick-field input:focus { border-bottom-color: var(--brand); box-shadow: none; }
+
+    /* === EMPTY STATE === */
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* === CHART === */
+    .chart-wrap { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px; }
+    .chart-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .chart-tab { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); font-size: 12px; font-weight: 700; font-family: 'Barlow', sans-serif; cursor: pointer; }
+    .chart-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+    /* === WEEK DIVIDER === */
+    .week-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin: 14px 0 8px; display: flex; align-items: center; gap: 8px; }
+    .week-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* === INSTALL BANNER === */
+    #installBanner { display: none; background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%); padding: 14px 16px; align-items: center; gap: 12px; }
+    #installBanner.show { display: flex; }
+    #installBanner p { flex: 1; font-size: 13px; color: #fff; font-weight: 600; }
+    #btnInstall { padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,0.25); color: #fff; border: 1px solid rgba(255,255,255,0.5); border-radius: 8px; cursor: pointer; font-weight: 700; font-family: 'Barlow', sans-serif; }
+    #btnDismiss { color: rgba(255,255,255,0.7); background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px; }
+
+    /* === SETTINGS === */
+    .settings-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 8px; cursor: pointer; }
+    .settings-item-text { font-size: 15px; font-weight: 600; }
+    .settings-item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .settings-item-arrow { color: var(--text-muted); font-size: 18px; }
+    .settings-input-group { background: var(--surface2); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 8px; }
+    .settings-input-group label { font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; display: block; }
+
+    /* === DIAS DA SEMANA === */
+    .days-bar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .day-item { background: var(--surface3); border-radius: 8px; padding: 8px 4px; text-align: center; }
+    .day-name { font-size: 9px; color: var(--text-dim); font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+    .day-value { font-size: 11px; font-weight: 800; font-family: 'Space Mono', monospace; color: var(--text-muted); }
+    .day-item.best { background: rgba(0,200,83,0.15); border: 1px solid rgba(0,200,83,0.3); }
+    .day-item.best .day-value { color: var(--green); }
+    .day-item.best .day-name { color: var(--green); }
+
+    /* Animations */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .page.active .card, .page.active .route-item, .page.active .stat-card, .page.active .ajudante-card { animation: fadeIn 0.3s ease both; }
+    .pulsing { animation: pulse 1.5s ease infinite; }
+
+    /* Divider */
+    .divider { height: 1px; background: var(--border); margin: 16px 0; }
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin: 16px 0 10px; }
+  </style>
+</head>
+<body>
+
+<!-- Install Banner -->
+<div id="installBanner">
+  <p>📦 Instale o Entrega Pro no seu celular!</p>
+  <button id="btnInstall">Instalar</button>
+  <button id="btnDismiss">✕</button>
+</div>
+
+<!-- App Header -->
+<header class="app-header">
+  <div class="header-top">
+    <div class="app-title">Entrega Pro <span id="headerStatus">●</span></div>
+    <button class="btn-config" onclick="setPage('settings')">⚙️</button>
+  </div>
+  <div class="month-filter">
+    <span class="month-label">📅 Mês:</span>
+    <input type="month" id="filtroMes"/>
+  </div>
+</header>
+
+<!-- ===================== PAGE HOME ===================== -->
+<div id="page-home" class="page active">
+
+  <!-- Semana Atual -->
+  <div class="card" style="margin-top:12px;">
+    <div class="card-title">📊 Semana Atual</div>
+    <div class="stats-grid" id="statsSemana">
+      <div class="stat-card"><div class="stat-label">Lucro Líq.</div><div class="stat-value green" id="statLucroSemana">R$ 0,00</div></div>
+      <div class="stat-card"><div class="stat-label">Ajudante</div><div class="stat-value red" id="statAjudanteSemana">R$ 0,00</div></div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Rotas</div><div class="stat-value brand" id="statRotasSemana">0</div></div>
+      <div class="stat-card"><div class="stat-label">KM Total</div><div class="stat-value brand" id="statKmSemana">0 km</div></div>
+    </div>
+    <!-- Performance da Semana -->
+    <div class="section-label">⚡ Performance</div>
+    <div class="perf-grid" id="perfSemana">
+      <div class="perf-item"><div class="perf-value" id="perfLucroHora">—</div><div class="perf-label">R$/hora</div></div>
+      <div class="perf-item"><div class="perf-value" id="perfEntregasHora">—</div><div class="perf-label">Entregas/h</div></div>
+      <div class="perf-item"><div class="perf-value" id="perfValorEntrega">—</div><div class="perf-label">R$/entrega</div></div>
+    </div>
+  </div>
+
+  <!-- Ajudante Semana Anterior -->
+  <div id="ajudanteSection"></div>
+
+  <!-- Resumo Mensal -->
+  <div class="card">
+    <div class="card-title" id="tituloResumoMensal">📆 Resumo do Mês</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Faturado</div><div class="stat-value brand" id="statFaturado">R$ 0,00</div></div>
+      <div class="stat-card"><div class="stat-label">Gastos</div><div class="stat-value red" id="statGastos">R$ 0,00</div></div>
+      <div class="stat-card"><div class="stat-label">Lucro Líq.</div><div class="stat-value green" id="statLucro">R$ 0,00</div></div>
+      <div class="stat-card"><div class="stat-label">Vales</div><div class="stat-value yellow" id="statVales">R$ 0,00</div></div>
+      <div class="stat-card highlight">
+        <div class="stat-label">Saldo Final do Mês</div>
+        <div class="stat-value green" id="statSaldo">R$ 0,00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Inteligente -->
+  <div class="card">
+    <div class="card-title">🧠 Inteligência</div>
+    <div id="insightsDashboard">
+      <div class="empty-state" style="padding:20px"><p style="font-size:13px">Adicione rotas para ver insights</p></div>
+    </div>
+  </div>
+
+  <!-- Melhor Dia da Semana -->
+  <div class="card">
+    <div class="card-title">📅 Lucro por Dia da Semana</div>
+    <div class="days-bar" id="diasSemanaBar"></div>
+  </div>
+
+  <!-- Gráfico com abas -->
+  <div class="card">
+    <div class="card-title" id="tituloGrafico">📈 Evolução</div>
+    <div class="chart-tabs">
+      <button class="chart-tab active" onclick="setChartMode('diario')">Diário</button>
+      <button class="chart-tab" onclick="setChartMode('semanal')">Semanal</button>
+      <button class="chart-tab" onclick="setChartMode('acumulado')">Acumulado</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="graficoLucros" height="160"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== PAGE ROTA ===================== -->
+<div id="page-rota" class="page">
+
+  <!-- Botão Modo Rápido -->
+  <button class="quick-mode-btn" style="margin-top:12px" onclick="abrirModoRapido()">
+    ⚡ REGISTRO RÁPIDO DE ROTA
+  </button>
+
+  <!-- GPS Card -->
+  <div class="card">
+    <div class="card-title">🛰️ GPS da Rota</div>
+
+    <!-- Mapa -->
+    <div id="mapaRota"></div>
+
+    <div class="gps-grid">
+      <div class="gps-info"><div class="gps-info-label">Início</div><div class="gps-info-val" id="gpsInicio">--</div></div>
+      <div class="gps-info"><div class="gps-info-label">Duração</div><div class="gps-info-val" id="gpsDuracao">00:00:00</div></div>
+      <div class="gps-info"><div class="gps-info-label">KM (GPS)</div><div class="gps-info-val" id="gpsKm">0 km</div></div>
+      <div class="gps-info"><div class="gps-info-label">Velocidade</div><div class="gps-info-val" id="gpsVelocidade">0 km/h</div></div>
+    </div>
+
+    <!-- Previsão em Tempo Real -->
+    <div id="previewLive" style="display:none">
+      <div class="preview-live" id="previewLiveBox">
+        <div class="preview-live-title">⚡ Previsão em Tempo Real</div>
+        <div class="preview-live-grid">
+          <div class="preview-item">
+            <div class="preview-item-val green" id="prevLucro">R$0</div>
+            <div class="preview-item-label">Lucro est.</div>
+          </div>
+          <div class="preview-item">
+            <div class="preview-item-val yellow" id="prevCombustivel">R$0</div>
+            <div class="preview-item-label">Combustível</div>
+          </div>
+          <div class="preview-item">
+            <div class="preview-item-val brand" id="prevLucroHora">0/h</div>
+            <div class="preview-item-label">R$/hora</div>
+          </div>
+        </div>
+      </div>
+      <div id="alertaNegativo" style="display:none">
+        <div class="alert-box danger">⚠️ <span>Lucro estimado negativo! Verifique os custos.</span></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-success" id="btnIniciarRota">
+        <span class="btn-icon">▶</span> Iniciar Rota
+      </button>
+      <button class="btn btn-danger" id="btnFinalizarRota" disabled>
+        <span class="btn-icon">■</span> Finalizar
+      </button>
+    </div>
+  </div>
+
+  <!-- Form Adicionar Rota -->
+  <div class="card">
+    <div class="card-title">➕ Registrar Rota Completa</div>
+    <form id="formRota" autocomplete="off">
+      <div class="form-group">
+        <label>Empresa</label>
+        <input type="text" id="empresa" placeholder="Shopee, Amazon, Mercado Livre..." list="empresasSuggestions" required/>
+        <datalist id="empresasSuggestions"></datalist>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Data</label>
+          <input type="date" id="data" required/>
+        </div>
+        <div class="form-group">
+          <label>Duração (min)</label>
+          <input type="number" id="duracao" placeholder="120" inputmode="numeric"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Valor da Rota (R$)</label>
+          <input type="number" id="valor" step="0.01" placeholder="0,00" inputmode="decimal" required/>
+        </div>
+        <div class="form-group">
+          <label>Qtd. Entregas</label>
+          <input type="number" id="qtdEntregas" placeholder="0" inputmode="numeric"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>KM Rodado</label>
+        <input type="number" id="km" step="0.1" placeholder="0" inputmode="decimal" required/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Consumo (km/L)</label>
+          <input type="number" id="consumoVeiculo" step="0.1" placeholder="10.5" inputmode="decimal"/>
+        </div>
+        <div class="form-group">
+          <label>Combustível (R$/L)</label>
+          <input type="number" id="precoCombustivel" step="0.01" placeholder="5.89" inputmode="decimal"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ajudante (R$)</label>
+          <input type="number" id="ajudante" step="0.01" value="0" inputmode="decimal"/>
+        </div>
+        <div class="form-group">
+          <label>Outros Gastos (R$)</label>
+          <input type="number" id="outros" step="0.01" value="0" inputmode="decimal"/>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <span>💾</span> Salvar Rota
+      </button>
+    </form>
+  </div>
+
+  <!-- Form Vale -->
+  <div class="card">
+    <div class="card-title">💵 Registrar Vale</div>
+    <form id="formVale" autocomplete="off">
+      <div class="form-group">
+        <label>Data do Vale</label>
+        <input type="date" id="dataVale" required/>
+      </div>
+      <div class="form-group">
+        <label>Valor (R$)</label>
+        <input type="number" id="valorVale" step="0.01" inputmode="decimal" required/>
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <input type="text" id="descricaoVale" placeholder="Ex: Vale para almoço"/>
+      </div>
+      <button type="submit" class="btn btn-secondary">
+        <span>💵</span> Registrar Vale
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== PAGE HISTÓRICO ===================== -->
+<div id="page-historico" class="page">
+  <div class="card" style="margin-top:12px;">
+    <div class="section-header">
+      <div class="section-title" id="tituloTabelaRotas">Rotas do Mês</div>
+      <span class="badge" id="badgeRotas">0</span>
+    </div>
+    <div id="listaRotas"></div>
+  </div>
+</div>
+
+<!-- ===================== PAGE SETTINGS ===================== -->
+<div id="page-settings" class="page">
+  <div class="card" style="margin-top:12px;">
+    <div class="card-title">⚙️ Configurações do Veículo</div>
+    <div class="settings-input-group">
+      <label>Custo por KM (R$/km) — custo fixo (pneus, manutenção...)</label>
+      <input type="number" id="custoPorKm" step="0.01" placeholder="0.15" inputmode="decimal" onchange="salvarConfiguracoes()"/>
+    </div>
+    <div class="settings-input-group">
+      <label>Consumo Padrão do Veículo (km/L)</label>
+      <input type="number" id="consumoPadrao" step="0.1" placeholder="10.5" inputmode="decimal" onchange="salvarConfiguracoes()"/>
+    </div>
+    <div class="settings-input-group">
+      <label>Preço Padrão do Combustível (R$/L)</label>
+      <input type="number" id="combustivelPadrao" step="0.01" placeholder="5.89" inputmode="decimal" onchange="salvarConfiguracoes()"/>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">☁️ Dados & Backup</div>
+    <div class="settings-item" onclick="exportarDados()">
+      <div><div class="settings-item-text">📤 Exportar Dados</div><div class="settings-item-sub">Baixar backup JSON</div></div>
+      <div class="settings-item-arrow">›</div>
+    </div>
+    <div class="settings-item" onclick="document.getElementById('importInput').click()">
+      <div><div class="settings-item-text">📥 Importar Dados</div><div class="settings-item-sub">Restaurar de backup</div></div>
+      <div class="settings-item-arrow">›</div>
+    </div>
+    <input type="file" id="importInput" accept=".json" style="display:none" onchange="importarDados(event)"/>
+    <div style="margin-top:16px;">
+      <button class="btn btn-danger" id="btnResetar">🗑️ Apagar Todos os Dados</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔮 Firebase (Futuro)</div>
+    <div class="alert-box info">
+      🚀 Integração com Firebase preparada. Habilite para sincronização em nuvem e backup automático entre dispositivos.
+    </div>
+    <button class="btn btn-secondary" style="margin-top:8px" onclick="showToast('Em breve! Acompanhe as atualizações.', '')">
+      ☁️ Configurar Firebase
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">ℹ️ Sobre</div>
+    <div style="font-size:14px; color:var(--text-muted); line-height:1.8;">
+      <p><strong style="color:var(--text)">Entrega Pro</strong> v3.0</p>
+      <p>App profissional de controle de rotas.</p>
+      <p style="margin-top:8px; color:var(--text-dim)">100% offline após instalação. Dados salvos localmente.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Navigation -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="setPage('home')">
+    <span class="nav-icon">🏠</span>Início
+  </button>
+  <button class="nav-btn" id="nav-rota" onclick="setPage('rota')">
+    <span class="nav-icon">📦</span>Rota
+  </button>
+  <button class="nav-btn" id="nav-historico" onclick="setPage('historico')">
+    <span class="nav-icon">📋</span>Histórico
+  </button>
+  <button class="nav-btn" id="nav-settings" onclick="setPage('settings')">
+    <span class="nav-icon">⚙️</span>Config
+  </button>
+</nav>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ===================== MODAL MODO RÁPIDO ===================== -->
+<div class="modal-overlay" id="modalRapido">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚡ Registro Rápido</div>
+    <div class="quick-field">
+      <label>🏢 Empresa</label>
+      <input type="text" id="qEmpresa" placeholder="Shopee..." list="empresasSuggestions"/>
+    </div>
+    <div class="quick-field">
+      <label>💰 Valor Ganho (R$)</label>
+      <input type="number" id="qValor" placeholder="0,00" inputmode="decimal"/>
+    </div>
+    <div class="quick-field">
+      <label>📦 Quantas entregas?</label>
+      <input type="number" id="qEntregas" placeholder="0" inputmode="numeric"/>
+    </div>
+    <div class="quick-field">
+      <label>🛣️ KM rodado</label>
+      <input type="number" id="qKm" placeholder="0" inputmode="decimal"/>
+    </div>
+    <div class="quick-field">
+      <label>⏱️ Duração (minutos)</label>
+      <input type="number" id="qDuracao" placeholder="120" inputmode="numeric"/>
+    </div>
+    <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <button class="btn btn-secondary" onclick="fecharModal('modalRapido')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarModoRapido()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// FIREBASE ADAPTER — estrutura pronta para integração futura
+// Troque 'local' por 'firebase' e implemente os métodos
+// ============================================================
+const DB = {
+  mode: 'local', // 'local' | 'firebase'
+
+  async save(key, value) {
+    if (this.mode === 'local') {
+      localStorage.setItem(key, JSON.stringify(value));
+    } else {
+      // firebase: await firestore.collection('users').doc(userId).set({ [key]: value }, { merge: true });
+    }
+  },
+
+  async get(key, fallback = null) {
+    if (this.mode === 'local') {
+      try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+    } else {
+      // firebase: const doc = await firestore.collection('users').doc(userId).get();
+      // return doc.data()?.[key] ?? fallback;
+    }
+  },
+
+  async remove(key) {
+    if (this.mode === 'local') {
+      localStorage.removeItem(key);
+    }
+  }
+};
+
+// ============================================================
+// ESTADO GLOBAL
+// ============================================================
+let rotas = [];
+let vales = [];
+let pagamentosAjudanteFeitos = [];
+let consumoVeiculoSalvo = '';
+let precoCombustivelSalvo = '';
+let custoPorKmSalvo = 0;
+let graficoLucrosInstance = null;
+let mesFiltrado = null;
+let chartMode = 'diario';
+let empresasCadastradas = new Set(['Shopee', 'Amazon', 'Mercado Livre', 'iFood', 'Rappi', 'Loggi']);
+
+// GPS State
+let rotaAtiva = false;
+let startTime = null;
+let startCoords = null;
+let timerInterval = null;
+let previewInterval = null;
+let watchId = null;
+let distanciaGPS = 0;
+let lastCoords = null;
+let trackPoints = []; // para o mapa
+
+// Mapa Leaflet
+let mapaInstance = null;
+let mapaPolyline = null;
+let mapaMarkerInicio = null;
+let mapaMarkerFim = null;
+
+// PWA Install
+let deferredPrompt = null;
+
+// ============================================================
+// UTILITÁRIOS
+// ============================================================
+const formatarMoeda = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatarData = (s) => s ? new Date(s + 'T00:00:00').toLocaleDateString('pt-BR') : '--';
+const fmt2 = (n) => n.toFixed(2);
+
+// ============================================================
+// NAVEGAÇÃO
+// ============================================================
+function setPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  const navBtn = document.getElementById(`nav-${page}`);
+  if (navBtn) navBtn.classList.add('active');
+  if (page === 'home') renderizarTudo();
+  if (page === 'historico') renderizarHistorico();
+}
+
+// ============================================================
+// PERSISTÊNCIA
+// ============================================================
+const salvarDados = () => {
+  try {
+    localStorage.setItem('ep_rotas', JSON.stringify(rotas));
+    localStorage.setItem('ep_vales', JSON.stringify(vales));
+    localStorage.setItem('ep_consumo', consumoVeiculoSalvo);
+    localStorage.setItem('ep_combustivel', precoCombustivelSalvo);
+    localStorage.setItem('ep_pagamentos', JSON.stringify(pagamentosAjudanteFeitos));
+    localStorage.setItem('ep_empresas', JSON.stringify([...empresasCadastradas]));
+    localStorage.setItem('ep_custokm', custoPorKmSalvo);
+  } catch(e) { showToast('Erro ao salvar dados', 'error'); }
+};
+
+const carregarDados = () => {
+  try {
+    rotas = JSON.parse(localStorage.getItem('ep_rotas') || localStorage.getItem('controleEntregas_rotas') || '[]');
+    vales = JSON.parse(localStorage.getItem('ep_vales') || localStorage.getItem('controleEntregas_vales') || '[]');
+    pagamentosAjudanteFeitos = JSON.parse(localStorage.getItem('ep_pagamentos') || '[]');
+    consumoVeiculoSalvo = localStorage.getItem('ep_consumo') || '';
+    precoCombustivelSalvo = localStorage.getItem('ep_combustivel') || '';
+    custoPorKmSalvo = parseFloat(localStorage.getItem('ep_custokm') || '0') || 0;
+    const empresasSalvas = JSON.parse(localStorage.getItem('ep_empresas') || '[]');
+    if (empresasSalvas.length) empresasCadastradas = new Set([...empresasCadastradas, ...empresasSalvas]);
+    rotas = rotas.map((r, i) => ({ ...r, id: r.id || Date.now() + i }));
+    vales = vales.map((v, i) => ({ ...v, id: v.id || Date.now() + i }));
+  } catch(e) { rotas = []; vales = []; }
+};
+
+const salvarConfiguracoes = () => {
+  const cp = parseFloat(document.getElementById('custoPorKm').value) || 0;
+  const cv = document.getElementById('consumoPadrao').value;
+  const cb = document.getElementById('combustivelPadrao').value;
+  custoPorKmSalvo = cp;
+  if (cv) consumoVeiculoSalvo = cv;
+  if (cb) precoCombustivelSalvo = cb;
+  salvarDados();
+  showToast('Configurações salvas!', 'success');
+};
+
+const resetarSistema = () => {
+  if (!confirm('Apagar TODOS os dados permanentemente?')) return;
+  if (!confirm('Confirmação final: esta ação não pode ser desfeita!')) return;
+  ['ep_rotas','ep_vales','ep_consumo','ep_combustivel','ep_pagamentos','ep_empresas','ep_custokm',
+   'controleEntregas_rotas','controleEntregas_vales','controleEntregas_consumo','controleEntregas_pagamentosFeitos']
+    .forEach(k => localStorage.removeItem(k));
+  location.reload();
+};
+
+// ============================================================
+// CÁLCULOS
+// ============================================================
+const calcularGastoCombustivel = (r) => {
+  const km = parseFloat(r.km || 0);
+  const consumo = parseFloat(r.consumoVeiculo || consumoVeiculoSalvo || 0);
+  const preco = parseFloat(r.precoCombustivel || precoCombustivelSalvo || 0);
+  if (!consumo || !preco || !km) return 0;
+  return (km / consumo) * preco;
+};
+
+const calcularCustoKm = (r) => {
+  const km = parseFloat(r.km || 0);
+  const custo = parseFloat(r.custoPorKm ?? custoPorKmSalvo ?? 0);
+  return km * custo;
+};
+
+const calcularGasto = (r) => calcularGastoCombustivel(r) + calcularCustoKm(r);
+
+const calcularLucro = (r) => {
+  const valor = parseFloat(r.valor || 0);
+  const ajudante = parseFloat(r.ajudante || 0);
+  const outros = parseFloat(r.outros || 0);
+  return valor - calcularGasto(r) - ajudante - outros;
+};
+
+// Performance: lucro/hora, entregas/hora, valor/entrega
+const calcularPerformance = (rotasList) => {
+  const totalLucro = rotasList.reduce((a, r) => a + calcularLucro(r), 0);
+  const totalMinutos = rotasList.reduce((a, r) => a + parseFloat(r.duracao || 0), 0);
+  const totalEntregas = rotasList.reduce((a, r) => a + parseFloat(r.qtdEntregas || 0), 0);
+  const totalHoras = totalMinutos / 60;
+
+  return {
+    lucroHora: totalHoras > 0 ? totalLucro / totalHoras : null,
+    entregasHora: totalHoras > 0 && totalEntregas > 0 ? totalEntregas / totalHoras : null,
+    valorEntrega: totalEntregas > 0 ? totalLucro / totalEntregas : null,
+  };
+};
+
+const obterMesAnoFiltrado = () => {
+  if (mesFiltrado) {
+    const [ano, mes] = mesFiltrado.split('-').map(Number);
+    return { ano, mes: mes - 1 };
+  }
+  const h = new Date();
+  return { ano: h.getFullYear(), mes: h.getMonth() };
+};
+
+// ============================================================
+// MAPA LEAFLET
+// ============================================================
+const iniciarMapa = () => {
+  if (mapaInstance) return;
+  mapaInstance = L.map('mapaRota', { zoomControl: false, attributionControl: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapaInstance);
+};
+
+const atualizarMapa = (lat, lng, isFirst = false) => {
+  if (!mapaInstance) iniciarMapa();
+
+  trackPoints.push([lat, lng]);
+
+  if (mapaPolyline) {
+    mapaPolyline.setLatLngs(trackPoints);
+  } else {
+    mapaPolyline = L.polyline(trackPoints, { color: '#FF4500', weight: 4, opacity: 0.85 }).addTo(mapaInstance);
+  }
+
+  if (isFirst) {
+    const iconInicio = L.divIcon({ html: '<div style="background:#00C853;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px #00C853"></div>', className: '', iconAnchor: [7,7] });
+    mapaMarkerInicio = L.marker([lat, lng], { icon: iconInicio }).addTo(mapaInstance);
+  }
+
+  mapaInstance.setView([lat, lng], 15);
+};
+
+const marcarFimMapa = (lat, lng) => {
+  if (!mapaInstance) return;
+  const iconFim = L.divIcon({ html: '<div style="background:#FF4500;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px #FF4500"></div>', className: '', iconAnchor: [7,7] });
+  mapaMarkerFim = L.marker([lat, lng], { icon: iconFim }).addTo(mapaInstance);
+  if (mapaPolyline) mapaInstance.fitBounds(mapaPolyline.getBounds(), { padding: [20,20] });
+};
+
+const resetarMapa = () => {
+  if (mapaInstance) {
+    if (mapaPolyline) { mapaPolyline.remove(); mapaPolyline = null; }
+    if (mapaMarkerInicio) { mapaMarkerInicio.remove(); mapaMarkerInicio = null; }
+    if (mapaMarkerFim) { mapaMarkerFim.remove(); mapaMarkerFim = null; }
+  }
+  trackPoints = [];
+};
+
+// ============================================================
+// PREVISÃO EM TEMPO REAL
+// ============================================================
+const atualizarPreviewLive = () => {
+  if (!rotaAtiva) return;
+
+  const elapsed = (Date.now() - startTime) / 1000 / 3600; // horas
+  const valorEntrada = parseFloat(document.getElementById('valor').value || 0);
+  const consumo = parseFloat(document.getElementById('consumoVeiculo').value || consumoVeiculoSalvo || 0);
+  const precoCombu = parseFloat(document.getElementById('precoCombustivel').value || precoCombustivelSalvo || 0);
+
+  const gastoCombustivel = (consumo > 0 && precoCombu > 0)
+    ? (distanciaGPS / consumo) * precoCombu
+    : 0;
+  const gastoKm = distanciaGPS * custoPorKmSalvo;
+  const totalGasto = gastoCombustivel + gastoKm;
+  const lucroEstimado = valorEntrada - totalGasto;
+  const lucroHora = elapsed > 0 ? lucroEstimado / elapsed : 0;
+
+  document.getElementById('prevLucro').textContent = formatarMoeda(lucroEstimado);
+  document.getElementById('prevCombustivel').textContent = formatarMoeda(totalGasto);
+  document.getElementById('prevLucroHora').textContent = 'R$' + Math.round(lucroHora) + '/h';
+
+  const box = document.getElementById('previewLiveBox');
+  const alerta = document.getElementById('alertaNegativo');
+
+  if (lucroEstimado < 0) {
+    box.classList.add('negative');
+    alerta.style.display = 'block';
+  } else {
+    box.classList.remove('negative');
+    alerta.style.display = 'none';
+  }
+};
+
+// ============================================================
+// GPS — INICIAR / FINALIZAR
+// ============================================================
+const calcularDistancia = (lat1, lon1, lat2, lon2) => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+};
+
+document.getElementById('btnIniciarRota').addEventListener('click', () => {
+  if (rotaAtiva) return;
+  if (!navigator.geolocation) { showToast('GPS não disponível', 'error'); return; }
+
+  navigator.geolocation.getCurrentPosition((pos) => {
+    rotaAtiva = true;
+    startTime = Date.now();
+    startCoords = pos.coords;
+    lastCoords = pos.coords;
+    distanciaGPS = 0;
+    trackPoints = [];
+
+    resetarMapa();
+    iniciarMapa();
+    atualizarMapa(pos.coords.latitude, pos.coords.longitude, true);
+
+    document.getElementById('gpsInicio').textContent = new Date().toLocaleTimeString('pt-BR');
+    document.getElementById('btnIniciarRota').disabled = true;
+    document.getElementById('btnFinalizarRota').disabled = false;
+    document.getElementById('headerStatus').style.color = '#00C853';
+    document.getElementById('previewLive').style.display = 'block';
+
+    timerInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const h = Math.floor(elapsed / 3600000);
+      const m = Math.floor((elapsed % 3600000) / 60000);
+      const s = Math.floor((elapsed % 60000) / 1000);
+      document.getElementById('gpsDuracao').textContent =
+        `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }, 1000);
+
+    previewInterval = setInterval(atualizarPreviewLive, 5000);
+
+    watchId = navigator.geolocation.watchPosition((pos) => {
+      if (lastCoords) {
+        const d = calcularDistancia(lastCoords.latitude, lastCoords.longitude, pos.coords.latitude, pos.coords.longitude);
+        if (d > 0.01) { // filtro de ruído: mínimo 10m
+          distanciaGPS += d;
+          document.getElementById('gpsKm').textContent = distanciaGPS.toFixed(2) + ' km';
+          atualizarMapa(pos.coords.latitude, pos.coords.longitude);
+        }
+        if (pos.coords.speed != null) {
+          document.getElementById('gpsVelocidade').textContent = (pos.coords.speed * 3.6).toFixed(0) + ' km/h';
+        }
+      }
+      lastCoords = pos.coords;
+    }, null, { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 });
+
+    showToast('Rota iniciada!', 'success');
+  }, () => showToast('Não foi possível obter GPS', 'error'), { enableHighAccuracy: true });
+});
+
+document.getElementById('btnFinalizarRota').addEventListener('click', () => {
+  if (!rotaAtiva) return;
+  rotaAtiva = false;
+  clearInterval(timerInterval);
+  clearInterval(previewInterval);
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+
+  const elapsed = Date.now() - startTime;
+  const minutos = Math.round(elapsed / 60000);
+  const kmCalculado = distanciaGPS.toFixed(1);
+
+  if (lastCoords) marcarFimMapa(lastCoords.latitude, lastCoords.longitude);
+
+  document.getElementById('btnIniciarRota').disabled = false;
+  document.getElementById('btnFinalizarRota').disabled = true;
+  document.getElementById('headerStatus').style.color = '';
+  document.getElementById('previewLive').style.display = 'none';
+
+  document.getElementById('km').value = kmCalculado;
+  document.getElementById('duracao').value = minutos;
+  const hoje = new Date().toISOString().split('T')[0];
+  document.getElementById('data').value = hoje;
+
+  showToast(`Rota finalizada! ${kmCalculado} km em ${minutos}min`, 'success');
+});
+
+// ============================================================
+// MODO RÁPIDO
+// ============================================================
+const abrirModoRapido = () => {
+  document.getElementById('qEmpresa').value = '';
+  document.getElementById('qValor').value = '';
+  document.getElementById('qEntregas').value = '';
+  document.getElementById('qKm').value = distanciaGPS > 0 ? distanciaGPS.toFixed(1) : '';
+  const elapsed = startTime ? Math.round((Date.now() - startTime) / 60000) : '';
+  document.getElementById('qDuracao').value = elapsed || '';
+  document.getElementById('modalRapido').classList.add('open');
+};
+
+const salvarModoRapido = () => {
+  const empresa = document.getElementById('qEmpresa').value.trim();
+  const valor = parseFloat(document.getElementById('qValor').value);
+  const km = parseFloat(document.getElementById('qKm').value) || 0;
+  const duracao = parseInt(document.getElementById('qDuracao').value) || 0;
+  const qtdEntregas = parseInt(document.getElementById('qEntregas').value) || 0;
+
+  if (!empresa || !valor) { showToast('Preencha empresa e valor', 'error'); return; }
+
+  const novaRota = {
+    id: Date.now(),
+    data: new Date().toISOString().split('T')[0],
+    empresa, valor, km, duracao, qtdEntregas,
+    consumoVeiculo: consumoVeiculoSalvo,
+    precoCombustivel: precoCombustivelSalvo,
+    custoPorKm: custoPorKmSalvo,
+    ajudante: 0, outros: 0,
+  };
+
+  rotas.push(novaRota);
+  empresasCadastradas.add(empresa);
+  salvarDados();
+  atualizarSugestoesEmpresas();
+  fecharModal('modalRapido');
+  renderizarTudo();
+  showToast('Rota registrada!', 'success');
+};
+
+// ============================================================
+// FORMULÁRIOS
+// ============================================================
+document.getElementById('formRota').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const novaRota = {
+    id: Date.now(),
+    data: document.getElementById('data').value,
+    empresa: document.getElementById('empresa').value.trim(),
+    valor: parseFloat(document.getElementById('valor').value),
+    km: parseFloat(document.getElementById('km').value),
+    duracao: parseInt(document.getElementById('duracao').value) || 0,
+    qtdEntregas: parseInt(document.getElementById('qtdEntregas').value) || 0,
+    consumoVeiculo: document.getElementById('consumoVeiculo').value || consumoVeiculoSalvo,
+    precoCombustivel: document.getElementById('precoCombustivel').value || precoCombustivelSalvo,
+    custoPorKm: custoPorKmSalvo,
+    ajudante: parseFloat(document.getElementById('ajudante').value) || 0,
+    outros: parseFloat(document.getElementById('outros').value) || 0,
+  };
+  rotas.push(novaRota);
+  consumoVeiculoSalvo = novaRota.consumoVeiculo;
+  precoCombustivelSalvo = novaRota.precoCombustivel;
+  empresasCadastradas.add(novaRota.empresa);
+  salvarDados();
+  atualizarSugestoesEmpresas();
+
+  e.target.reset();
+  document.getElementById('consumoVeiculo').value = consumoVeiculoSalvo;
+  document.getElementById('precoCombustivel').value = precoCombustivelSalvo;
+  document.getElementById('data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('ajudante').value = 0;
+  document.getElementById('outros').value = 0;
+
+  showToast('Rota salva!', 'success');
+  setPage('home');
+});
+
+document.getElementById('formVale').addEventListener('submit', (e) => {
+  e.preventDefault();
+  vales.push({
+    id: Date.now(),
+    dataVale: document.getElementById('dataVale').value,
+    valorVale: parseFloat(document.getElementById('valorVale').value),
+    descricao: document.getElementById('descricaoVale').value,
+  });
+  salvarDados();
+  e.target.reset();
+  document.getElementById('dataVale').value = new Date().toISOString().split('T')[0];
+  showToast('Vale registrado!', 'success');
+  setPage('home');
+});
+
+document.getElementById('btnResetar').addEventListener('click', resetarSistema);
+document.getElementById('filtroMes').addEventListener('change', (e) => {
+  mesFiltrado = e.target.value;
+  renderizarTudo();
+  renderizarHistorico();
+});
+
+// ============================================================
+// SUGESTÕES
+// ============================================================
+const atualizarSugestoesEmpresas = () => {
+  const dl = document.getElementById('empresasSuggestions');
+  dl.innerHTML = [...empresasCadastradas].map(e => `<option value="${e}">`).join('');
+};
+
+// ============================================================
+// MODAL
+// ============================================================
+const fecharModal = (id) => document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ============================================================
+// CHART MODE
+// ============================================================
+const setChartMode = (mode) => {
+  chartMode = mode;
+  document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  const { ano, mes } = obterMesAnoFiltrado();
+  renderizarGrafico(ano, mes);
+};
+
+// ============================================================
+// RENDERIZAÇÃO — HOME
+// ============================================================
+const renderizarTudo = () => {
+  renderizarSemanaAtual();
+  renderizarAjudante();
+  const { ano, mes } = obterMesAnoFiltrado();
+  renderizarResumoMensal(ano, mes);
+  renderizarGrafico(ano, mes);
+  renderizarInsights();
+  renderizarDiasSemana();
+};
+
+const renderizarSemanaAtual = () => {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const dia = hoje.getDay();
+  const inicio = new Date(hoje);
+  inicio.setDate(hoje.getDate() - (dia === 0 ? 6 : dia - 1));
+  const fim = new Date(inicio); fim.setDate(inicio.getDate() + 6);
+
+  const rotasSemana = rotas.filter(r => {
+    const d = new Date(r.data + 'T00:00:00');
+    return d >= inicio && d <= fim;
+  });
+
+  const totalLucro = rotasSemana.reduce((acc, r) => acc + calcularLucro(r), 0);
+  const totalAjudante = rotasSemana.reduce((acc, r) => acc + parseFloat(r.ajudante || 0), 0);
+  const totalKm = rotasSemana.reduce((acc, r) => acc + parseFloat(r.km || 0), 0);
+
+  document.getElementById('statLucroSemana').textContent = formatarMoeda(totalLucro);
+  document.getElementById('statAjudanteSemana').textContent = formatarMoeda(totalAjudante);
+  document.getElementById('statRotasSemana').textContent = rotasSemana.length;
+  document.getElementById('statKmSemana').textContent = totalKm.toFixed(0) + ' km';
+
+  // Performance
+  const perf = calcularPerformance(rotasSemana);
+  document.getElementById('perfLucroHora').textContent = perf.lucroHora != null ? 'R$' + Math.round(perf.lucroHora) : '—';
+  document.getElementById('perfEntregasHora').textContent = perf.entregasHora != null ? perf.entregasHora.toFixed(1) : '—';
+  document.getElementById('perfValorEntrega').textContent = perf.valorEntrega != null ? 'R$' + Math.round(perf.valorEntrega) : '—';
+};
+
+const renderizarAjudante = () => {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const dia = hoje.getDay();
+  const diasSub = dia === 0 ? 7 : dia;
+  const fimAnterior = new Date(hoje); fimAnterior.setDate(hoje.getDate() - diasSub);
+  const inicioAnterior = new Date(fimAnterior); inicioAnterior.setDate(fimAnterior.getDate() - 6);
+  const semanaKey = inicioAnterior.toISOString().split('T')[0];
+  const isPago = pagamentosAjudanteFeitos.includes(semanaKey);
+
+  const rotasSemana = rotas.filter(r => {
+    const d = new Date(r.data + 'T00:00:00');
+    return d >= inicioAnterior && d <= fimAnterior;
+  });
+  const totalAjudante = rotasSemana.reduce((acc, r) => acc + parseFloat(r.ajudante || 0), 0);
+
+  const el = document.getElementById('ajudanteSection');
+  if (totalAjudante === 0 && !isPago) { el.innerHTML = ''; return; }
+
+  if (isPago) {
+    el.innerHTML = `<div class="ajudante-card"><span class="ajudante-badge">✅ Pago</span><div style="font-size:14px;color:var(--text-muted)">Ajudante semana anterior pago</div><div style="font-size:22px;font-weight:800;font-family:'Space Mono',monospace;color:var(--green)">${formatarMoeda(totalAjudante)}</div></div>`;
+  } else {
+    el.innerHTML = `<div class="ajudante-card"><span class="ajudante-badge">💰 Pendente</span><div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Ajudante semana anterior</div><div style="font-size:24px;font-weight:800;font-family:'Space Mono',monospace;color:var(--yellow);margin-bottom:12px">${formatarMoeda(totalAjudante)}</div><button class="btn btn-primary btn-sm" onclick="marcarAjudantePago('${semanaKey}')">✅ Marcar como Pago</button></div>`;
+  }
+};
+
+const marcarAjudantePago = (key) => {
+  if (!confirm('Confirmar pagamento do ajudante?')) return;
+  if (!pagamentosAjudanteFeitos.includes(key)) pagamentosAjudanteFeitos.push(key);
+  salvarDados();
+  renderizarAjudante();
+  showToast('Pagamento registrado!', 'success');
+};
+
+const renderizarResumoMensal = (ano, mes) => {
+  const nomeMes = new Date(ano, mes).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  document.getElementById('tituloResumoMensal').textContent = `📆 ${nomeMes}`;
+
+  const rotasMes = rotas.filter(r => {
+    const d = new Date(r.data + 'T00:00:00');
+    return d.getFullYear() === ano && d.getMonth() === mes;
+  });
+  const valesMes = vales.filter(v => {
+    const d = new Date(v.dataVale + 'T00:00:00');
+    return d.getFullYear() === ano && d.getMonth() === mes;
+  });
+
+  const totalFaturado = rotasMes.reduce((a, r) => a + parseFloat(r.valor || 0), 0);
+  const totalGastos = rotasMes.reduce((a, r) => a + parseFloat(r.ajudante || 0) + parseFloat(r.outros || 0) + calcularGasto(r), 0);
+  const totalLucro = totalFaturado - totalGastos;
+  const totalVales = valesMes.reduce((a, v) => a + parseFloat(v.valorVale || 0), 0);
+  const saldo = totalLucro - totalVales;
+
+  document.getElementById('statFaturado').textContent = formatarMoeda(totalFaturado);
+  document.getElementById('statGastos').textContent = formatarMoeda(totalGastos);
+  document.getElementById('statLucro').textContent = formatarMoeda(totalLucro);
+  document.getElementById('statVales').textContent = formatarMoeda(totalVales);
+  const saldoEl = document.getElementById('statSaldo');
+  saldoEl.textContent = formatarMoeda(saldo);
+  saldoEl.className = `stat-value ${saldo >= 0 ? 'green' : 'red'}`;
+};
+
+// ============================================================
+// INSIGHTS — DASHBOARD INTELIGENTE
+// ============================================================
+const renderizarInsights = () => {
+  const el = document.getElementById('insightsDashboard');
+  if (rotas.length === 0) { el.innerHTML = '<div class="empty-state" style="padding:20px"><p style="font-size:13px">Adicione rotas para ver insights</p></div>'; return; }
+
+  // Média semanal (últimas 4 semanas)
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  let somaMediaSemanal = 0, semanasComDados = 0;
+  for (let i = 0; i < 4; i++) {
+    const fimSem = new Date(hoje); fimSem.setDate(hoje.getDate() - i * 7);
+    const inicioSem = new Date(fimSem); inicioSem.setDate(fimSem.getDate() - 6);
+    const r = rotas.filter(r => { const d = new Date(r.data + 'T00:00:00'); return d >= inicioSem && d <= fimSem; });
+    if (r.length > 0) { somaMediaSemanal += r.reduce((a,r) => a + calcularLucro(r), 0); semanasComDados++; }
+  }
+  const mediaSemanal = semanasComDados > 0 ? somaMediaSemanal / semanasComDados : 0;
+
+  // Melhor empresa
+  const lucroEmpresa = {};
+  rotas.forEach(r => {
+    lucroEmpresa[r.empresa] = (lucroEmpresa[r.empresa] || 0) + calcularLucro(r);
+  });
+  const melhorEmpresa = Object.entries(lucroEmpresa).sort((a,b) => b[1] - a[1])[0];
+
+  // Tendência: esse mês vs mês anterior
+  const { ano, mes } = obterMesAnoFiltrado();
+  const rotasMes = rotas.filter(r => { const d = new Date(r.data + 'T00:00:00'); return d.getFullYear() === ano && d.getMonth() === mes; });
+  const mesAnterior = mes === 0 ? 11 : mes - 1;
+  const anoAnterior = mes === 0 ? ano - 1 : ano;
+  const rotasMesAnt = rotas.filter(r => { const d = new Date(r.data + 'T00:00:00'); return d.getFullYear() === anoAnterior && d.getMonth() === mesAnterior; });
+  const lucroMes = rotasMes.reduce((a, r) => a + calcularLucro(r), 0);
+  const lucroMesAnt = rotasMesAnt.reduce((a, r) => a + calcularLucro(r), 0);
+  const variacao = lucroMesAnt > 0 ? ((lucroMes - lucroMesAnt) / lucroMesAnt * 100) : null;
+
+  // Previsão do mês (baseada na média diária dos dias já trabalhados)
+  const diasTrabalhados = new Set(rotasMes.map(r => r.data)).size;
+  const diaAtual = new Date().getDate();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const mediaDiaria = diasTrabalhados > 0 ? lucroMes / diasTrabalhados : 0;
+  const previsaoMes = mediaDiaria * diasNoMes;
+
+  el.innerHTML = `
+    <div class="insight-card">
+      <div class="insight-icon">📈</div>
+      <div>
+        <div class="insight-title">Média Semanal (4 semanas)</div>
+        <div class="insight-value">${formatarMoeda(mediaSemanal)}</div>
+        <div class="insight-sub">por semana</div>
+      </div>
+    </div>
+    ${melhorEmpresa ? `<div class="insight-card">
+      <div class="insight-icon">🏆</div>
+      <div>
+        <div class="insight-title">Empresa mais lucrativa</div>
+        <div class="insight-value">${melhorEmpresa[0]}</div>
+        <div class="insight-sub">${formatarMoeda(melhorEmpresa[1])} total</div>
+      </div>
+    </div>` : ''}
+    ${variacao !== null ? `<div class="insight-card">
+      <div class="insight-icon">${variacao >= 0 ? '🟢' : '🔴'}</div>
+      <div>
+        <div class="insight-title">Vs mês anterior</div>
+        <div class="insight-value" style="color:${variacao >= 0 ? 'var(--green)' : 'var(--red)'}">${variacao >= 0 ? '+' : ''}${variacao.toFixed(1)}%</div>
+        <div class="insight-sub">${formatarMoeda(lucroMesAnt)} no mês passado</div>
+      </div>
+    </div>` : ''}
+    ${mediaDiaria > 0 ? `<div class="insight-card">
+      <div class="insight-icon">🔮</div>
+      <div>
+        <div class="insight-title">Previsão do mês</div>
+        <div class="insight-value" style="color:var(--blue)">${formatarMoeda(previsaoMes)}</div>
+        <div class="insight-sub">R$${mediaDiaria.toFixed(0)}/dia × ${diasNoMes} dias</div>
+      </div>
+    </div>` : ''}
+  `;
+};
+
+// ============================================================
+// MELHOR DIA DA SEMANA
+// ============================================================
+const renderizarDiasSemana = () => {
+  const nomes = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const totais = [0,0,0,0,0,0,0];
+  const conts = [0,0,0,0,0,0,0];
+
+  rotas.forEach(r => {
+    const d = new Date(r.data + 'T00:00:00');
+    const diaSem = d.getDay();
+    totais[diaSem] += calcularLucro(r);
+    conts[diaSem]++;
+  });
+
+  const medias = totais.map((t, i) => conts[i] > 0 ? t / conts[i] : 0);
+  const maxMedia = Math.max(...medias);
+
+  const el = document.getElementById('diasSemanaBar');
+  el.innerHTML = nomes.map((n, i) => `
+    <div class="day-item ${medias[i] === maxMedia && maxMedia > 0 ? 'best' : ''}">
+      <div class="day-name">${n}</div>
+      <div class="day-value">${medias[i] > 0 ? 'R$' + Math.round(medias[i]) : '—'}</div>
+    </div>
+  `).join('');
+};
+
+// ============================================================
+// GRÁFICO
+// ============================================================
+const renderizarGrafico = (ano, mes) => {
+  const nomeMes = new Date(ano, mes).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  document.getElementById('tituloGrafico').textContent = `📈 Evolução — ${nomeMes}`;
+
+  if (graficoLucrosInstance) graficoLucrosInstance.destroy();
+
+  const rotasMes = rotas.filter(r => {
+    const d = new Date(r.data + 'T00:00:00');
+    return d.getFullYear() === ano && d.getMonth() === mes;
+  });
+
+  let labels = [], data = [];
+
+  if (chartMode === 'diario') {
+    const lucrosPorDia = {};
+    rotasMes.forEach(r => {
+      const dia = new Date(r.data + 'T00:00:00').getDate();
+      lucrosPorDia[dia] = (lucrosPorDia[dia] || 0) + calcularLucro(r);
+    });
+    labels = Object.keys(lucrosPorDia).sort((a,b) => a-b);
+    data = labels.map(d => lucrosPorDia[d]);
+    labels = labels.map(d => `${d}`);
+  } else if (chartMode === 'semanal') {
+    const lucrosSemana = {};
+    rotasMes.forEach(r => {
+      const d = new Date(r.data + 'T00:00:00');
+      const sem = Math.ceil(d.getDate() / 7);
+      lucrosSemana[`Sem ${sem}`] = (lucrosSemana[`Sem ${sem}`] || 0) + calcularLucro(r);
+    });
+    labels = Object.keys(lucrosSemana);
+    data = Object.values(lucrosSemana);
+  } else { // acumulado
+    const lucrosPorDia = {};
+    rotasMes.forEach(r => {
+      const dia = new Date(r.data + 'T00:00:00').getDate();
+      lucrosPorDia[dia] = (lucrosPorDia[dia] || 0) + calcularLucro(r);
+    });
+    const dias = Object.keys(lucrosPorDia).sort((a,b) => a-b);
+    let acum = 0;
+    dias.forEach(d => { acum += lucrosPorDia[d]; labels.push(d); data.push(acum); });
+  }
+
+  const isLine = chartMode === 'acumulado';
+
+  graficoLucrosInstance = new Chart(document.getElementById('graficoLucros').getContext('2d'), {
+    type: isLine ? 'line' : 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Lucro (R$)',
+        data,
+        backgroundColor: isLine ? 'rgba(255,69,0,0.15)' : data.map(v => v >= 0 ? 'rgba(0,200,83,0.7)' : 'rgba(255,23,68,0.7)'),
+        borderColor: isLine ? '#FF4500' : data.map(v => v >= 0 ? '#00C853' : '#FF1744'),
+        borderWidth: isLine ? 2 : 1,
+        borderRadius: isLine ? 0 : 4,
+        fill: isLine,
+        tension: 0.4,
+        pointBackgroundColor: '#FF4500',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7A7A8C', font: { family: 'Space Mono', size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#7A7A8C', font: { family: 'Space Mono', size: 10 }, callback: v => 'R$' + v.toLocaleString('pt-BR') }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+      }
+    }
+  });
+};
+
+// ============================================================
+// HISTÓRICO
+// ============================================================
+const renderizarHistorico = () => {
+  const { ano, mes } = obterMesAnoFiltrado();
+  const nomeMes = new Date(ano, mes).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  document.getElementById('tituloTabelaRotas').textContent = nomeMes;
+
+  const rotasMes = rotas
+    .filter(r => { const d = new Date(r.data + 'T00:00:00'); return d.getFullYear() === ano && d.getMonth() === mes; })
+    .sort((a, b) => new Date(b.data) - new Date(a.data));
+
+  document.getElementById('badgeRotas').textContent = rotasMes.length;
+  const container = document.getElementById('listaRotas');
+
+  if (!rotasMes.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>Nenhuma rota em ${nomeMes}</p></div>`;
+    return;
+  }
+
+  container.innerHTML = rotasMes.map(r => {
+    const lucro = calcularLucro(r);
+    const gasto = calcularGasto(r);
+    const perf = r.duracao > 0 ? `${(parseFloat(r.km||0)/(r.duracao/60)).toFixed(0)} km/h` : '';
+    return `
+    <div class="route-item">
+      <div class="route-item-header">
+        <div>
+          <div class="route-item-empresa">${r.empresa}</div>
+          <div class="route-item-data">${formatarData(r.data)}${r.duracao ? ` · ${r.duracao}min` : ''}</div>
+        </div>
+        <div class="route-item-profit ${lucro >= 0 ? 'green' : 'red'}">${formatarMoeda(lucro)}</div>
+      </div>
+      <div class="route-item-meta">
+        <span>📦 ${formatarMoeda(parseFloat(r.valor || 0))}</span>
+        <span>🛣️ ${r.km} km</span>
+        ${gasto > 0 ? `<span>⛽ ${formatarMoeda(gasto)}</span>` : ''}
+        ${parseFloat(r.ajudante || 0) > 0 ? `<span>👤 ${formatarMoeda(parseFloat(r.ajudante))}</span>` : ''}
+        ${r.qtdEntregas > 0 ? `<span>📬 ${r.qtdEntregas} entrega${r.qtdEntregas > 1 ? 's' : ''}</span>` : ''}
+        ${perf ? `<span>🚀 ${perf}</span>` : ''}
+      </div>
+      <button class="route-delete" onclick="excluirRota(${r.id})">✕</button>
+    </div>`;
+  }).join('');
+};
+
+const excluirRota = (id) => {
+  if (!confirm('Excluir esta rota?')) return;
+  rotas = rotas.filter(r => r.id !== id);
+  salvarDados();
+  renderizarHistorico();
+  showToast('Rota removida', 'error');
+};
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+const exportarDados = () => {
+  const dados = { rotas, vales, pagamentosAjudanteFeitos, configuracoes: { custoPorKmSalvo, consumoVeiculoSalvo, precoCombustivelSalvo }, exportadoEm: new Date().toISOString(), versao: '3.0' };
+  const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `entrega-pro-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup exportado!', 'success');
+};
+
+const importarDados = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const dados = JSON.parse(ev.target.result);
+      if (!confirm('Importar dados? Isso vai MESCLAR com os dados atuais.')) return;
+      const idsExistentes = new Set(rotas.map(r => r.id));
+      dados.rotas?.forEach(r => { if (!idsExistentes.has(r.id)) rotas.push(r); });
+      const idsVales = new Set(vales.map(v => v.id));
+      dados.vales?.forEach(v => { if (!idsVales.has(v.id)) vales.push(v); });
+      dados.pagamentosAjudanteFeitos?.forEach(p => { if (!pagamentosAjudanteFeitos.includes(p)) pagamentosAjudanteFeitos.push(p); });
+      if (dados.configuracoes) {
+        if (dados.configuracoes.custoPorKmSalvo) custoPorKmSalvo = dados.configuracoes.custoPorKmSalvo;
+      }
+      salvarDados();
+      renderizarTudo();
+      showToast('Dados importados!', 'success');
+    } catch { showToast('Arquivo inválido', 'error'); }
+  };
+  reader.readAsText(file);
+};
+
+// ============================================================
+// TOAST
+// ============================================================
+let toastTimer;
+const showToast = (msg, type = '') => {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = 'toast', 3000);
+};
+
+// ============================================================
+// PWA INSTALL
+// ============================================================
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+
+document.getElementById('btnInstall').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+  if (outcome === 'accepted') showToast('App instalado!', 'success');
+});
+
+document.getElementById('btnDismiss').addEventListener('click', () => {
+  document.getElementById('installBanner').classList.remove('show');
+});
+
+// ============================================================
+// SERVICE WORKER
+// ============================================================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ============================================================
+// INICIALIZAÇÃO
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  carregarDados();
+  atualizarSugestoesEmpresas();
+
+  const hoje = new Date();
+  const mes = (hoje.getMonth() + 1).toString().padStart(2, '0');
+  const filtroVal = `${hoje.getFullYear()}-${mes}`;
+  document.getElementById('filtroMes').value = filtroVal;
+  mesFiltrado = filtroVal;
+
+  const hojeStr = hoje.toISOString().split('T')[0];
+  document.getElementById('data').value = hojeStr;
+  document.getElementById('dataVale').value = hojeStr;
+  if (consumoVeiculoSalvo) document.getElementById('consumoVeiculo').value = consumoVeiculoSalvo;
+  if (precoCombustivelSalvo) document.getElementById('precoCombustivel').value = precoCombustivelSalvo;
+  if (custoPorKmSalvo) document.getElementById('custoPorKm').value = custoPorKmSalvo;
+  if (consumoVeiculoSalvo) document.getElementById('consumoPadrao').value = consumoVeiculoSalvo;
+  if (precoCombustivelSalvo) document.getElementById('combustivelPadrao').value = precoCombustivelSalvo;
+
+  // Inicializar mapa com fundo
+  iniciarMapa();
+
+  renderizarTudo();
+});
+</script>
+</body>
+</html>
